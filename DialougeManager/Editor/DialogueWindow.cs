@@ -2,18 +2,13 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEditor;
+using System.IO;
+using System;
 
 public class DialogueWindow : EditorWindow {
 
-	//TEST
-	[SerializeField]
-	private Node testNode;
-	private SerializedObject serializedTestNode;
-
-	[SerializeField]
-	private List<Node> nodes;
-	[SerializeField]
-	private List<Connection> connections; 
+    [SerializeField]
+    public DialogueNodes nodes;
 
 	private GUIStyle nodeStyle;
 	private GUIStyle selectedNodeStyle;
@@ -27,12 +22,40 @@ public class DialogueWindow : EditorWindow {
 	private Vector2 offset;
 	private Vector2 drag;
 
-	[MenuItem("Window/Dialogue Editor")]
+    private string gameDataProjectFolderPath = "/StreamingAssets/";
+    private string gameDataProjectFilePath = "/StreamingAssets/data.json";
+
+    [MenuItem("Window/Dialogue Editor")]
 	private static void OpenWindow()
 	{
 		DialogueWindow window = GetWindow<DialogueWindow>(); 
 		window.titleContent = new GUIContent("Dialogue Editor");
+        window.LoadData();
+        window.nodes = ScriptableObject.CreateInstance<DialogueNodes>();
 	}
+
+    private void LoadData()
+    {
+        string filePath = Application.dataPath + gameDataProjectFilePath;
+
+        if (File.Exists(filePath))
+        {
+            string dataAsJson = File.ReadAllText(filePath);
+            nodes = JsonUtility.FromJson<DialogueNodes>(dataAsJson);
+        }
+    }
+
+    private void SaveData()
+    {
+        System.IO.Directory.CreateDirectory(Application.dataPath + gameDataProjectFolderPath);
+        string dataAsJson = JsonUtility.ToJson(nodes);
+
+        Debug.Log("Save Data");
+        Debug.Log(dataAsJson);
+
+        string filePath = Application.dataPath + gameDataProjectFilePath;
+        File.WriteAllText(filePath, dataAsJson);
+    }
 
 	private void OnEnable()
 	{
@@ -53,19 +76,6 @@ public class DialogueWindow : EditorWindow {
 		outPointStyle.normal.background = EditorGUIUtility.Load("builtin skins/darkskin/images/btn right.png") as Texture2D;
 		outPointStyle.active.background = EditorGUIUtility.Load("builtin skins/darkskin/images/btn right on.png") as Texture2D;
 		outPointStyle.border = new RectOffset(4, 4, 12, 12);
-
-		//TEST
-        /*
-		Object[] selection = Selection.GetFiltered(typeof(Node), SelectionMode.Assets);
-		if (selection.Length > 0) {
-			if (selection [0] != null) {
-				testNode = (Node)selection [0];
-				serializedTestNode = new UnityEditor.SerializedObject(testNode);
-				DrawNodes ();
-				Repaint();
-			}    
-		}
-        */
 	}
 
 	private void OnGUI()
@@ -113,20 +123,11 @@ public class DialogueWindow : EditorWindow {
 
 	private void DrawNodes()
 	{
-		//TEST
-        /*
-		if (testNode != null) {
-			serializedTestNode.Update();
-			testNode.Draw ();
-			serializedTestNode.ApplyModifiedProperties();
-		}
-        */
-		
-		if (nodes != null)
+		if (nodes.nodes != null)
 		{
-			for (int i = 0; i < nodes.Count; i++)
+			for (int i = 0; i < nodes.nodes.Count; i++)
 			{
-				nodes[i].Draw();
+                nodes.nodes[i].Draw();
 			}
 		}
 		
@@ -134,11 +135,11 @@ public class DialogueWindow : EditorWindow {
 
 	private void DrawConnections()
 	{
-		if (connections != null)
+		if (nodes.connections != null)
 		{
-			for (int i = 0; i < connections.Count; i++)
+			for (int i = 0; i < nodes.connections.Count; i++)
 			{
-				connections[i].Draw();
+                nodes.connections[i].Draw();
 			} 
 		}
 	}
@@ -172,23 +173,11 @@ public class DialogueWindow : EditorWindow {
 
 	private void ProcessNodeEvents(Event e)
 	{
-		//TEST
-        /*
-		if (testNode != null) {
-			bool guiChanged = testNode.ProcessEvents(e);
-			if (guiChanged)
-			{
-				GUI.changed = true;
-			}
-		}
-        (/
-        */
-		
-		if (nodes != null)
+		if (nodes.nodes != null)
 		{
-			for (int i = nodes.Count - 1; i >= 0; i--)
+			for (int i = nodes.nodes.Count - 1; i >= 0; i--)
 			{
-				bool guiChanged = nodes[i].ProcessEvents(e);
+				bool guiChanged = nodes.nodes[i].ProcessEvents(e);
 
 				if (guiChanged)
 				{
@@ -209,11 +198,11 @@ public class DialogueWindow : EditorWindow {
 	{
 		drag = delta;
 
-		if (nodes != null)
+		if (nodes.nodes != null)
 		{
-			for (int i = 0; i < nodes.Count; i++)
+			for (int i = 0; i < nodes.nodes.Count; i++)
 			{
-				nodes[i].Drag(delta);
+                nodes.nodes[i].Drag(delta);
 			}
 		}
 
@@ -222,47 +211,41 @@ public class DialogueWindow : EditorWindow {
 
 	private void OnClickAddNode(Vector2 mousePosition)
 	{
-		//TEST
-        /*
-		Node newNode = ScriptableObject.CreateInstance<Node>();
-		newNode.Initialize (mousePosition, 200, 50, nodeStyle, selectedNodeStyle, inPointStyle, outPointStyle, OnClickInPoint, OnClickOutPoint, OnClickRemoveNode);
-		testNode = newNode;
-		serializedTestNode = new UnityEditor.SerializedObject(testNode);
-        */
-
-		if (nodes == null)
+		if (nodes.nodes == null)
 		{
-			nodes = new List<Node>();
+            nodes.nodes = new List<Node>();
 		}
 
 		Node newNode = ScriptableObject.CreateInstance<Node>();
 		newNode.Initialize (mousePosition, 200, 50, nodeStyle, selectedNodeStyle, inPointStyle, outPointStyle, OnClickInPoint, OnClickOutPoint, OnClickRemoveNode);
-		nodes.Add(newNode);
+        nodes.nodes.Add(newNode);
+        SaveData();
 	}
 
 	private void OnClickRemoveNode(Node node)
 	{
-		if (connections != null)
+		if (nodes.connections != null)
 		{
 			List<Connection> connectionsToRemove = new List<Connection>();
 
-			for (int i = 0; i < connections.Count; i++)
+			for (int i = 0; i < nodes.connections.Count; i++)
 			{
-				if (connections[i].inPoint == node.inPoint || connections[i].outPoint == node.outPoint)
+				if (nodes.connections[i].inPoint == node.inPoint || nodes.connections[i].outPoint == node.outPoint)
 				{
-					connectionsToRemove.Add(connections[i]);
+					connectionsToRemove.Add(nodes.connections[i]);
 				}
 			}
 
 			for (int i = 0; i < connectionsToRemove.Count; i++)
 			{
-				connections.Remove(connectionsToRemove[i]);
+                nodes.connections.Remove(connectionsToRemove[i]);
 			}
 
 			connectionsToRemove = null;
 		}
 
-		nodes.Remove(node);
+        nodes.nodes.Remove(node);
+        SaveData();
 	}
 
 	private void OnClickInPoint(ConnectionPoint inPoint)
@@ -303,19 +286,19 @@ public class DialogueWindow : EditorWindow {
 
 	private void OnClickRemoveConnection(Connection connection)
 	{
-		connections.Remove(connection);
+        nodes.connections.Remove(connection);
 	}
 
 	private void CreateConnection()
 	{
-		if (connections == null)
+		if (nodes.connections == null)
 		{
-			connections = new List<Connection>();
+            nodes.connections = new List<Connection>();
 		}
 
 		Connection newConnection = ScriptableObject.CreateInstance<Connection> ();
 		newConnection.Initialize (selectedInPoint, selectedOutPoint, OnClickRemoveConnection);
-		connections.Add(newConnection);
+		nodes.connections.Add(newConnection);
 	}
 
 	private void ClearConnectionSelection()
